@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "simple implementation of cryptocurrency",
   "scripts": {
-    "prestart": "npm run compile",
-    "start": "node src/main.js",
-    "compile": "tsc"
+    "build": "tsc",
+    "prestart": "npm run build",
+    "start": "node dist/main.js"
   },
   "dependencies": {
     "crypto-js": "^4.2.0",
@@ -17,7 +17,6 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.0",
     "@types/ws": "^8.18.1",
-    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
 }
