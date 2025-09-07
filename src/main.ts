@@ -16,10 +16,20 @@ const initHttpServer = (myHttpPort: number) => {
   const app = express();
   app.use(express.json());
 
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (err) {
+      res.status(400).send(err.message);
+    }
+  });
+
   app.get("/blocks", (req, res) => {
     res.send(getBlockchain());
   });
   app.post("/mineBlock", (req, res) => {
+    if (req.body.data == null) {
+      res.send("data parameter is missing");
+      return;
+    }
     const newBlock: Block = generateNextBlock(req.body.data);
     broadcastLatest();
     res.send(newBlock);
