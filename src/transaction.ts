@@ -407,4 +407,5 @@ export {
   getPublicKey,
   Transaction,
   isValidTransactionStructure,
+  isValidAddress,
 };
