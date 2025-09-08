@@ -9,6 +9,7 @@
 - simple transaction
 - simple wallet
 - simple mempool
+- simple SPA(Single page Application)
 
 ---
 
