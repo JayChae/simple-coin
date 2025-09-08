@@ -8,6 +8,7 @@ RUN npm ci
 
 COPY src/ ./src/
 COPY tsconfig.json ./
+COPY public/ ./public/
 
 RUN npm run build
 EXPOSE 3001 6001
