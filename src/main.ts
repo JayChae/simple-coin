@@ -19,6 +19,7 @@ import {
 } from "./p2p";
 import { getPublicFromWallet, initWallet } from "./wallet";
 import { getMempool } from "./mempool";
+import path from "path";
 
 const httpPort: number = parseInt(process.env.HTTP_PORT || "3001");
 const p2pPort: number = parseInt(process.env.P2P_PORT || "6001");
@@ -28,6 +29,8 @@ const initHttpServer = (myHttpPort: number) => {
   const app = express();
   app.use(express.json());
 
+  app.use(express.static(path.join(__dirname, "..", "public")));
+
   app.use((err: any, req: any, res: any, next: any) => {
     if (err) {
       res.status(400).send(err.message);
@@ -36,6 +39,33 @@ const initHttpServer = (myHttpPort: number) => {
 
   app.get("/blocks", (req, res) => {
     res.send(getBlockchain());
+  });
+
+  app.get("/block/hash/:hash", (req, res) => {
+    const block = getBlockchain().find(
+      (block) => block.hash === req.params.hash
+    );
+    res.send(block);
+  });
+  app.get("/block/index/:index", (req, res) => {
+    const block = getBlockchain().find(
+      (block) => block.index === Number(req.params.index)
+    );
+    res.send(block);
+  });
+
+  app.get("/transaction/:id", (req, res) => {
+    const tx = getBlockchain()
+      .flatMap((block) => block.data)
+      .find((transaction) => transaction.id === req.params.id);
+    res.send(tx);
+  });
+
+  app.get("/address/:address", (req, res) => {
+    const unspentTxOuts = getUnspentTxOuts().filter(
+      (uTxO) => uTxO.address === req.params.address
+    );
+    res.send({ unspentTxOuts: unspentTxOuts });
   });
 
   app.get("/unspentTransactionOutputs", (req, res) => {
@@ -141,6 +171,24 @@ const initHttpServer = (myHttpPort: number) => {
   app.post("/stop", (req, res) => {
     res.send({ msg: "stopping server" });
     process.exit();
+  });
+
+  // Catch-all handler for SPA routing - handle specific routes
+  app.get("/explorer", (req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  });
+
+  app.get("/wallet", (req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  });
+
+
+  app.use((req, res) => {
+    if (req.method === "GET") {
+      res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+    } else {
+      res.status(404).send("Not Found");
+    }
   });
 
   app.listen(myHttpPort, () => {
