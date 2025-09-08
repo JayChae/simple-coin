@@ -7,7 +7,11 @@ import {
   getLatestBlock,
   isValidBlockStructure,
   replaceChain,
+  handleReceivedTransaction,
 } from "./blockchain";
+
+import { Transaction } from "./transaction";
+import { getMempool } from "./mempool";
 
 const sockets: WebSocket[] = [];
 
@@ -15,6 +19,8 @@ enum MessageType {
   QUERY_LATEST = 0,
   QUERY_ALL = 1,
   RESPONSE_BLOCKCHAIN = 2,
+  QUERY_MEMPOOL = 3,
+  RESPONSE_MEMPOOL = 4,
 }
 
 interface Message {
@@ -38,6 +44,11 @@ const initConnection = (ws: WebSocket) => {
   initMessageHandler(ws);
   initErrorHandler(ws);
   sendMessage(ws, queryChainLengthMsg());
+
+  // query mempool only some time after chain query
+  setTimeout(() => {
+    broadcast(queryMempoolMsg());
+  }, 500);
 };
 
 const JSONToObject = <T>(data: string): T | null => {
@@ -51,30 +62,62 @@ const JSONToObject = <T>(data: string): T | null => {
 
 const initMessageHandler = (ws: WebSocket) => {
   ws.on("message", (data: string) => {
-    const message: Message | null = JSONToObject<Message>(data);
-    if (message === null) {
-      console.log("could not parse received JSON message: " + data);
-      return;
-    }
-    console.log("Received message" + JSON.stringify(message));
-    switch (message.type) {
-      case MessageType.QUERY_LATEST:
-        sendMessage(ws, responseLatestMsg());
-        break;
-      case MessageType.QUERY_ALL:
-        sendMessage(ws, responseChainMsg());
-        break;
-      case MessageType.RESPONSE_BLOCKCHAIN:
-        const receivedBlocks: Block[] | null = JSONToObject<Block[]>(
-          message.data
-        );
-        if (receivedBlocks === null) {
-          console.log("invalid blocks received:");
-          console.log(message.data);
+    try {
+      const message: Message | null = JSONToObject<Message>(data);
+      if (message === null) {
+        console.log("could not parse received JSON message: " + data);
+        return;
+      }
+      console.log("Received message" + JSON.stringify(message));
+      switch (message.type) {
+        case MessageType.QUERY_LATEST:
+          sendMessage(ws, responseLatestMsg());
           break;
-        }
-        handleBlockchainResponse(receivedBlocks);
-        break;
+        case MessageType.QUERY_ALL:
+          sendMessage(ws, responseChainMsg());
+          break;
+        case MessageType.RESPONSE_BLOCKCHAIN:
+          const receivedBlocks: Block[] | null = JSONToObject<Block[]>(
+            message.data
+          );
+          if (receivedBlocks === null) {
+            console.log("invalid blocks received:");
+            console.log(message.data);
+            break;
+          }
+          handleBlockchainResponse(receivedBlocks);
+          break;
+        case MessageType.QUERY_MEMPOOL:
+          sendMessage(ws, responseMempoolMsg());
+          break;
+        case MessageType.RESPONSE_MEMPOOL:
+          const receivedTransactions: Transaction[] | null = JSONToObject<
+            Transaction[]
+          >(message.data);
+          if (receivedTransactions === null) {
+            console.log(
+              "invalid transaction received: %s",
+              JSON.stringify(message.data)
+            );
+            break;
+          }
+          receivedTransactions.forEach((transaction: Transaction) => {
+            try {
+              handleReceivedTransaction(transaction);
+              broadcastMempool();
+            } catch (e) {
+              if (e instanceof Error) {
+                console.log(e.message);
+              } else {
+                console.log(e);
+              }
+            }
+          });
+          break;
+      }
+    } catch (e) {
+      console.log(e);
+      return;
     }
   });
 };
@@ -103,6 +146,16 @@ const responseChainMsg = (): Message => ({
 const responseLatestMsg = (): Message => ({
   type: MessageType.RESPONSE_BLOCKCHAIN,
   data: JSON.stringify([getLatestBlock()]),
+});
+
+const queryMempoolMsg = (): Message => ({
+  type: MessageType.QUERY_MEMPOOL,
+  data: null,
+});
+
+const responseMempoolMsg = (): Message => ({
+  type: MessageType.RESPONSE_MEMPOOL,
+  data: JSON.stringify(getMempool()),
 });
 
 const initErrorHandler = (ws: WebSocket) => {
@@ -155,6 +208,10 @@ const broadcastLatest = (): void => {
   broadcast(responseLatestMsg());
 };
 
+const broadcastMempool = () => {
+  broadcast(responseMempoolMsg());
+};
+
 const connectToPeer = (newPeer: string): void => {
   const ws: WebSocket = new WebSocket(newPeer);
   ws.on("open", () => {
@@ -165,4 +222,10 @@ const connectToPeer = (newPeer: string): void => {
   });
 };
 
-export { connectToPeer, broadcastLatest, initP2PServer, getSockets };
+export {
+  connectToPeer,
+  broadcastLatest,
+  broadcastMempool,
+  initP2PServer,
+  getSockets,
+};

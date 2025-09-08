@@ -6,14 +6,19 @@ import {
   generateBlockWithTransaction,
   getAccountBalance,
   getBlockchain,
+  getUnspentTxOuts,
+  getMyUnspentTransactionOutputs,
+  sendTransaction,
 } from "./blockchain";
 import {
   connectToPeer,
   getSockets,
   initP2PServer,
   broadcastLatest,
+  broadcastMempool,
 } from "./p2p";
-import { initWallet } from "./wallet";
+import { getPublicFromWallet, initWallet } from "./wallet";
+import { getMempool } from "./mempool";
 
 const httpPort: number = parseInt(process.env.HTTP_PORT || "3001");
 const p2pPort: number = parseInt(process.env.P2P_PORT || "6001");
@@ -31,6 +36,14 @@ const initHttpServer = (myHttpPort: number) => {
 
   app.get("/blocks", (req, res) => {
     res.send(getBlockchain());
+  });
+
+  app.get("/unspentTransactionOutputs", (req, res) => {
+    res.send(getUnspentTxOuts());
+  });
+
+  app.get("/myUnspentTransactionOutputs", (req, res) => {
+    res.send(getMyUnspentTransactionOutputs());
   });
 
   app.post("/mineRawBlock", (req, res) => {
@@ -62,6 +75,11 @@ const initHttpServer = (myHttpPort: number) => {
     res.send({ balance: balance });
   });
 
+  app.get("/address", (req, res) => {
+    const address: string = getPublicFromWallet();
+    res.send({ address: address });
+  });
+
   app.post("/mineTransaction", (req, res) => {
     const address = req.body.address;
     const amount = req.body.amount;
@@ -82,6 +100,32 @@ const initHttpServer = (myHttpPort: number) => {
     }
   });
 
+  app.post("/sendTransaction", (req, res) => {
+    try {
+      const address = req.body.address;
+      const amount = req.body.amount;
+
+      if (address === undefined || amount === undefined) {
+        throw Error("invalid address or amount");
+      }
+      const tx = sendTransaction(address, amount);
+      broadcastMempool();
+      res.send(tx);
+    } catch (e) {
+      if (e instanceof Error) {
+        console.log(e.message);
+        res.status(400).send(e.message);
+      } else {
+        console.log(e);
+        res.status(400).send("unknown error");
+      }
+    }
+  });
+
+  app.get("/mempool", (req, res) => {
+    res.send(getMempool());
+  });
+
   app.get("/peers", (req, res) => {
     res.send(
       getSockets().map(
@@ -92,6 +136,11 @@ const initHttpServer = (myHttpPort: number) => {
   app.post("/addPeer", (req, res) => {
     connectToPeer(req.body.peer);
     res.send();
+  });
+
+  app.post("/stop", (req, res) => {
+    res.send({ msg: "stopping server" });
+    process.exit();
   });
 
   app.listen(myHttpPort, () => {

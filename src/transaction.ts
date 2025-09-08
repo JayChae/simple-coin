@@ -74,6 +74,10 @@ const validateTransaction = (
   transaction: Transaction,
   aUnspentTxOuts: UnspentTxOut[]
 ): boolean => {
+  if (!isValidTransactionStructure(transaction)) {
+    return false;
+  }
+
   if (getTransactionId(transaction) !== transaction.id) {
     console.log("invalid tx id: " + transaction.id);
     return false;
@@ -202,12 +206,12 @@ const getTxInAmount = (txIn: TxIn, aUnspentTxOuts: UnspentTxOut[]): number => {
 };
 
 const findUnspentTxOut = (
-  transactionId: string,
-  index: number,
+  txOutId: string,
+  txOutIndex: number,
   aUnspentTxOuts: UnspentTxOut[]
 ): UnspentTxOut => {
   const unspentTxOut = aUnspentTxOuts.find(
-    (uTxO) => uTxO.txOutId === transactionId && uTxO.txOutIndex === index
+    (uTxO) => uTxO.txOutId === txOutId && uTxO.txOutIndex === txOutIndex
   );
   if (!unspentTxOut) {
     throw new Error("UnspentTxOut not found");
@@ -256,30 +260,23 @@ const signTxIn = (
 };
 
 const updateUnspentTxOuts = (
-  newTransactions: Transaction[],
+  aTransactions: Transaction[],
   aUnspentTxOuts: UnspentTxOut[]
 ): UnspentTxOut[] => {
-  const newUnspentTxOuts: UnspentTxOut[] = newTransactions.flatMap((t) =>
+  const newUnspentTxOuts: UnspentTxOut[] = aTransactions.flatMap((t) =>
     t.txOuts.map(
       (txOut, index) =>
         new UnspentTxOut(t.id, index, txOut.address, txOut.amount)
     )
   );
 
-  const consumedTxOuts: UnspentTxOut[] = newTransactions.flatMap((t) =>
-    t.txIns.map(
-      (txIn) => new UnspentTxOut(txIn.txOutId, txIn.txOutIndex, "", 0)
-    )
-  );
+  const consumedTxOuts: UnspentTxOut[] = aTransactions
+    .flatMap((t) => t.txIns)
+    .map((txIn) => new UnspentTxOut(txIn.txOutId, txIn.txOutIndex, "", 0));
 
   const resultingUnspentTxOuts = [
     ...aUnspentTxOuts.filter(
-      (uTxO) =>
-        !consumedTxOuts.some(
-          (consumedTxOut) =>
-            consumedTxOut.txOutId === uTxO.txOutId &&
-            consumedTxOut.txOutIndex === uTxO.txOutIndex
-        )
+      (uTxO) => !findUnspentTxOut(uTxO.txOutId, uTxO.txOutIndex, consumedTxOuts)
     ),
     ...newUnspentTxOuts,
   ];
@@ -292,10 +289,6 @@ const processTransactions = (
   aUnspentTxOuts: UnspentTxOut[],
   blockIndex: number
 ) => {
-  if (!isValidTransactionsStructure(aTransactions)) {
-    return null;
-  }
-
   if (!validateBlockTransactions(aTransactions, aUnspentTxOuts, blockIndex)) {
     console.log("invalid block transactions");
     return null;
@@ -348,9 +341,6 @@ const isValidTxOutStructure = (txOut: TxOut): boolean => {
     return true;
   }
 };
-
-const isValidTransactionsStructure = (transactions: Transaction[]): boolean =>
-  transactions.every(isValidTransactionStructure);
 
 const isValidTransactionStructure = (transaction: Transaction): boolean => {
   if (typeof transaction.id !== "string") {
@@ -408,4 +398,5 @@ export {
   Transaction,
   isValidTransactionStructure,
   isValidAddress,
+  validateTransaction,
 };
