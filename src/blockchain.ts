@@ -2,17 +2,22 @@ import sha256 from "crypto-js/sha256";
 import { hexToBinary } from "./util";
 import {
   getCoinbaseTransaction,
+  getTransactionId,
   isValidAddress,
   processTransactions,
   Transaction,
+  TxIn,
+  TxOut,
   UnspentTxOut,
 } from "./transaction";
 import {
   createTransaction,
+  findUnspentTxOuts,
   getBalance,
   getPrivateFromWallet,
   getPublicFromWallet,
 } from "./wallet";
+import { addToMempool, getMempool, updateMempool } from "./mempool";
 
 class Block {
   public index: number;
@@ -42,14 +47,40 @@ class Block {
   }
 }
 
+const calculateHash = (
+  index: number,
+  previousHash: string,
+  timestamp: number,
+  data: Transaction[],
+  difficulty: number,
+  nonce: number
+): string =>
+  sha256(
+    index + previousHash + timestamp + data + difficulty + nonce
+  ).toString();
+
+const genesisTxIn = new TxIn("", 0, "Let there be Simple-Coin");
+const genesisTxOut = new TxOut(
+  "2e577637f04b7e89518bd8a9c26c3111e6c92e622b27700bd011b87eb70bfb14",
+  50
+);
+
+const genesisTransaction: Transaction = new Transaction(
+  "",
+  [genesisTxIn],
+  [genesisTxOut]
+);
+
+genesisTransaction.id = getTransactionId(genesisTransaction);
+
 const genesisBlock: Block = new Block(
   0,
   "",
   1756716811,
-  [],
+  [genesisTransaction],
   0,
   0,
-  "38cdd2a4bdf21856e32e440da4ade0441e5b327f87981fe18dc63c4e1f0a2db6"
+  calculateHash(0, "", 1756716811, [genesisTransaction], 0, 0)
 );
 
 let blockchain: Block[] = [genesisBlock];
@@ -57,6 +88,13 @@ let blockchain: Block[] = [genesisBlock];
 let unspentTxOuts: UnspentTxOut[] = [];
 
 const getBlockchain = (): Block[] => blockchain;
+
+const getUnspentTxOuts = (): UnspentTxOut[] => structuredClone(unspentTxOuts);
+
+const setUnspentTxOuts = (newUnspentTxOut: UnspentTxOut[]) => {
+  console.log("replacing unspentTxouts with: %s", newUnspentTxOut);
+  unspentTxOuts = newUnspentTxOut;
+};
 
 const getLatestBlock = (): Block => blockchain[blockchain.length - 1];
 
@@ -97,6 +135,10 @@ const getAdjustedDifficulty = (latestBlock: Block, aBlockchain: Block[]) => {
 const getCurrentTimestamp = (): number =>
   Math.round(new Date().getTime() / 1000);
 
+const getMyUnspentTransactionOutputs = () => {
+  return findUnspentTxOuts(getPublicFromWallet(), getUnspentTxOuts());
+};
+
 const generateRawBlock = (blockData: Transaction[]) => {
   const previousBlock: Block = getLatestBlock();
   const nextIndex: number = previousBlock.index + 1;
@@ -123,7 +165,7 @@ const generateBlock = () => {
     getPublicFromWallet(),
     getLatestBlock().index + 1
   );
-  const blockData: Transaction[] = [coinbaseTx];
+  const blockData: Transaction[] = [coinbaseTx, ...getMempool()];
   return generateRawBlock(blockData);
 };
 
@@ -145,7 +187,8 @@ const generateBlockWithTransaction = (
     receiverAddress,
     amount,
     getPrivateFromWallet(),
-    unspentTxOuts
+    unspentTxOuts,
+    getMempool()
   );
   const blockData: Transaction[] = [coinbaseTx, tx];
   return generateRawBlock(blockData);
@@ -183,8 +226,20 @@ const findBlock = (
   }
 };
 
+const sendTransaction = (address: string, amount: number): Transaction => {
+  const tx: Transaction = createTransaction(
+    address,
+    amount,
+    getPrivateFromWallet(),
+    getUnspentTxOuts(),
+    getMempool()
+  );
+  addToMempool(tx, getUnspentTxOuts());
+  return tx;
+};
+
 const getAccountBalance = (): number => {
-  return getBalance(getPublicFromWallet(), unspentTxOuts);
+  return getBalance(getPublicFromWallet(), getUnspentTxOuts());
 };
 
 const hashMatchesDifficulty = (hash: string, difficulty: number): boolean => {
@@ -203,18 +258,6 @@ const calculateHashForBlock = (block: Block): string =>
     block.nonce
   );
 
-const calculateHash = (
-  index: number,
-  previousHash: string,
-  timestamp: number,
-  data: Transaction[],
-  difficulty: number,
-  nonce: number
-): string =>
-  sha256(
-    index + previousHash + timestamp + data + difficulty + nonce
-  ).toString();
-
 const isValidBlockStructure = (block: Block): boolean => {
   return (
     typeof block.index === "number" &&
@@ -227,14 +270,14 @@ const isValidBlockStructure = (block: Block): boolean => {
 
 const isValidNewBlock = (newBlock: Block, previousBlock: Block): boolean => {
   if (!isValidBlockStructure(newBlock)) {
-    console.log("invalid structure");
+    console.log("invalid block structure: %s", JSON.stringify(newBlock));
     return false;
   }
   if (previousBlock.index + 1 !== newBlock.index) {
     console.log("invalid index");
     return false;
   } else if (previousBlock.hash !== newBlock.previousHash) {
-    console.log("invalid previoushash");
+    console.log("invalid previousHash");
     return false;
   } else if (!isValidTimestamp(newBlock, previousBlock)) {
     console.log("invalid timestamp");
@@ -278,19 +321,31 @@ const isValidGenesis = (block: Block): boolean => {
   return JSON.stringify(block) === JSON.stringify(genesisBlock);
 };
 
-const isValidChain = (blockchainToValidate: Block[]): boolean => {
+const ValidateChain = (
+  blockchainToValidate: Block[]
+): UnspentTxOut[] | null => {
   if (!isValidGenesis(blockchainToValidate[0])) {
-    return false;
+    return null;
   }
+
+  let aUnspentTxOuts: UnspentTxOut[] | null = [];
 
   for (let i = 1; i < blockchainToValidate.length; i++) {
     if (
       !isValidNewBlock(blockchainToValidate[i], blockchainToValidate[i - 1])
     ) {
-      return false;
+      return null;
+    }
+    aUnspentTxOuts = processTransactions(
+      blockchainToValidate[i].data,
+      aUnspentTxOuts,
+      blockchainToValidate[i].index
+    );
+    if (aUnspentTxOuts === null) {
+      return null;
     }
   }
-  return true;
+  return aUnspentTxOuts;
 };
 
 const addBlockToChain = (newBlock: Block): boolean => {
@@ -305,6 +360,7 @@ const addBlockToChain = (newBlock: Block): boolean => {
     } else {
       blockchain.push(newBlock);
       unspentTxOuts = newUnspentTxOuts;
+      updateMempool(unspentTxOuts);
       return true;
     }
   }
@@ -312,8 +368,9 @@ const addBlockToChain = (newBlock: Block): boolean => {
 };
 
 const replaceChain = (newBlockchain: Block[]) => {
+  const newUnspentTxOuts = ValidateChain(newBlockchain);
   if (
-    isValidChain(newBlockchain) &&
+    !!newUnspentTxOuts &&
     getAccumulatedDifficulty(newBlockchain) >
       getAccumulatedDifficulty(getBlockchain())
   ) {
@@ -321,6 +378,8 @@ const replaceChain = (newBlockchain: Block[]) => {
       "Received blockchain is valid. Replacing current blockchain with received blockchain"
     );
     blockchain = newBlockchain;
+    setUnspentTxOuts(newUnspentTxOuts);
+    updateMempool(unspentTxOuts);
   } else {
     console.log("Received blockchain invalid");
   }
@@ -328,6 +387,10 @@ const replaceChain = (newBlockchain: Block[]) => {
 
 const getAccumulatedDifficulty = (aBlockchain: Block[]): number =>
   aBlockchain.reduce((sum, block) => sum + 2 ** block.difficulty, 0);
+
+const handleReceivedTransaction = (transaction: Transaction) => {
+  addToMempool(transaction, getUnspentTxOuts());
+};
 
 export {
   Block,
@@ -340,4 +403,8 @@ export {
   generateBlock,
   generateBlockWithTransaction,
   getAccountBalance,
+  getUnspentTxOuts,
+  handleReceivedTransaction,
+  getMyUnspentTransactionOutputs,
+  sendTransaction,
 };
