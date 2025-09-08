@@ -2,10 +2,63 @@
 
 암호화폐 학습을 위한 간결하고 단순한 암호화폐 구현
 
+[🔗 블록체인과 암호화폐 원리와 simple coin 구현 가이드]()
+
+- simple blockchain
+- simple proof of work
+- simple transaction
+- simple wallet
+- simple mempool
+
+---
+
+  <img width="" height="" alt="image" src="https://github.com/user-attachments/assets/5f6acc1b-d28d-4f8c-a1b4-c4a09c27bc09" />
+
+## 도커로 노드 3개 띄워서 체험하기(권장)
+
+```
+docker-compose up
+```
+
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/ed55b633-2b26-4149-8b14-b7a69d517e99" />
+
+### 구조
+
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/ee71ffa5-3caa-4b43-99d4-dda219e7bba2" />
+
+#### 노드
+
+http://localhost:3001 -> node1  
+http://localhost:3002 -> node2  
+http://localhost:3003 -> node3
+
+## 빠른 실행
+
 ```
 npm install
 npm start
 ```
+
+## explorer
+
+블록체인 확인  
+블록 검색  
+mempool 확인  
+블록 체굴 버튼
+
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/05d85944-5c1b-4f40-a347-672d875ef8d9" />
+
+## wallet
+
+잔고 확인  
+주소 확인  
+코인 보내기  
+mempool 확인  
+블록 체굴 버튼
+
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/9242ae2c-2be1-4e14-aea8-b8436afa91bf" />
+
+## HTTP API
 
 ##### Get blockchain
 
