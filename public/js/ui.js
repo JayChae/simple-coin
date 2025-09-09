@@ -270,18 +270,45 @@ class UI {
           <span class="font-medium">Index:</span> ${index}
         </div>
         <div class="text-gray-600">
-          <span class="font-medium">Address:</span> 
+          <span class="font-medium">Address:</span>
           <div class="font-mono text-green-600 break-all">${txOut.address.substring(
             0,
             20
           )}...</div>
         </div>
         <div class="text-gray-600">
-          <span class="font-medium">Amount:</span> 
+          <span class="font-medium">Amount:</span>
           <span class="font-bold text-green-600">${txOut.amount} SC</span>
         </div>
       </div>
     `;
+  }
+
+  // 연결된 peer 목록 표시
+  displayPeers(peers, page) {
+    const containerId =
+      page === "explorer" ? "explorerPeersContainer" : "walletPeersContainer";
+    const container = document.getElementById(containerId);
+
+    if (peers.length === 0) {
+      container.innerHTML =
+        '<div class="text-center text-gray-500">No connected peers</div>';
+      return;
+    }
+
+    container.innerHTML = peers
+      .map(
+        (peer) => `
+        <div class="border border-blue-200 bg-blue-50 rounded-lg p-3">
+          <div class="flex items-center space-x-2">
+            <div class="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+            <div class="text-sm font-mono text-blue-600 break-all">${peer}</div>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">Connected peer</div>
+        </div>
+      `
+      )
+      .join("");
   }
 
   // 지갑 정보 업데이트
