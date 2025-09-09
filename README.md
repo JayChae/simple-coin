@@ -43,21 +43,26 @@ npm start
 ## explorer
 
 블록체인 확인  
-블록 검색  
-mempool 확인  
-블록 체굴 버튼
+블록 검색 bt index or hash
 
-<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/05d85944-5c1b-4f40-a347-672d875ef8d9" />
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/b86f67f2-cf20-4cc9-a72c-4875542a84a6" />
 
 ## wallet
 
 잔고 확인  
 주소 확인  
 코인 보내기  
-mempool 확인  
-블록 체굴 버튼
 
-<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/9242ae2c-2be1-4e14-aea8-b8436afa91bf" />
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/5a299a08-b5b8-41b5-af90-b62fee206bf3" />
+
+## mempool & peers & mining
+
+mempool 확인
+연결된 노드 확인
+블록 채굴(mempool transaction 블록에 담기)
+
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/622fe360-a7a3-49b6-b20b-ddf78103eda3" />
+
 
 ## HTTP API
 
