@@ -202,19 +202,23 @@ const validateTxIn = (
 };
 
 const getTxInAmount = (txIn: TxIn, aUnspentTxOuts: UnspentTxOut[]): number => {
-  return findUnspentTxOut(txIn.txOutId, txIn.txOutIndex, aUnspentTxOuts).amount;
+  const unspentTxOut = findUnspentTxOut(txIn.txOutId, txIn.txOutIndex, aUnspentTxOuts);
+  if (!unspentTxOut) {
+    return 0;
+  }
+  return unspentTxOut.amount;
 };
 
 const findUnspentTxOut = (
   txOutId: string,
   txOutIndex: number,
   aUnspentTxOuts: UnspentTxOut[]
-): UnspentTxOut => {
+): UnspentTxOut | null => {
   const unspentTxOut = aUnspentTxOuts.find(
     (uTxO) => uTxO.txOutId === txOutId && uTxO.txOutIndex === txOutIndex
   );
   if (!unspentTxOut) {
-    throw new Error("UnspentTxOut not found");
+    return null;
   }
   return unspentTxOut;
 };
@@ -238,11 +242,14 @@ const signTxIn = (
   const txIn: TxIn = transaction.txIns[txInIndex];
 
   const dataToSign = transaction.id;
-  const referencedUnspentTxOut: UnspentTxOut = findUnspentTxOut(
+  const referencedUnspentTxOut = findUnspentTxOut(
     txIn.txOutId,
     txIn.txOutIndex,
     aUnspentTxOuts
   );
+  if (!referencedUnspentTxOut) {
+    throw Error("UnspentTxOut not found");
+  }
 
   const referencedAddress = referencedUnspentTxOut.address;
 
