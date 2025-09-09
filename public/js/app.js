@@ -3,6 +3,7 @@ class App {
   constructor() {
     this.blockchain = [];
     this.mempool = [];
+    this.peers = [];
     this.walletBalance = 0;
     this.walletAddress = "";
     this.autoRefreshInterval = null;
@@ -51,12 +52,14 @@ class App {
   async loadExplorerData() {
     await this.loadBlockchain();
     await this.loadMempool("explorer");
+    await this.loadPeers("explorer");
   }
 
   // 지갑 데이터 로드
   async loadWalletData() {
     ui.updateWalletDisplay(this.walletBalance, this.walletAddress);
     await this.loadMempool("wallet");
+    await this.loadPeers("wallet");
   }
 
   // 블록체인 로드
@@ -76,6 +79,16 @@ class App {
       ui.displayMempool(this.mempool, page);
     } catch (error) {
       console.error("Error loading mempool:", error);
+    }
+  }
+
+  // 연결된 peer 목록 로드
+  async loadPeers(page) {
+    try {
+      this.peers = await api.loadPeers();
+      ui.displayPeers(this.peers, page);
+    } catch (error) {
+      console.error("Error loading peers:", error);
     }
   }
 
@@ -191,6 +204,8 @@ class App {
       } else if (currentPage === "wallet") {
         await this.loadWalletData();
       }
+      // peer 정보 새로고침
+      await this.loadPeers(currentPage);
     } catch (error) {
       ui.showToast(`Mining failed: ${error.message}`, "error");
     } finally {
@@ -209,9 +224,12 @@ class App {
         const currentPage = navigation.getCurrentPage();
 
         if (currentPage === "explorer") {
-          await this.loadExplorerData();
+          await this.loadBlockchain();
+          await this.loadMempool("explorer");
+          await this.loadPeers("explorer");
         } else if (currentPage === "wallet") {
-          await this.loadWalletData();
+          await this.loadMempool("wallet");
+          await this.loadPeers("wallet");
         }
       } catch (error) {
         console.error("Error during auto refresh:", error);

@@ -116,6 +116,17 @@ class API {
       throw error;
     }
   }
+
+  // 연결된 peer 목록 로드
+  async loadPeers() {
+    try {
+      const response = await fetch(`${this.baseURL}/peers`);
+      return await response.json();
+    } catch (error) {
+      console.error("Error loading peers:", error);
+      throw error;
+    }
+  }
 }
 
 // API 인스턴스를 전역으로 내보내기
