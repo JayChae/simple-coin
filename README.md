@@ -25,7 +25,7 @@ docker-compose up
 
 ### 구조
 
-<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/8ea2dea3-f1c4-42bc-b929-cdfdb1ca8b43" />
+<img width="" height="" alt="image" src="https://github.com/user-attachments/assets/edecd65b-7af9-4573-b503-4b56939a2293" />
 
 #### 노드
 
